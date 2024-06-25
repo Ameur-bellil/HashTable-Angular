@@ -1,0 +1,24 @@
+
+<div class="container">
+  <div class="draw">
+    <canvas #canvasElement width="1000" height="400"></canvas>
+  </div>
+  <div class="info">
+    <div class="right">
+      <label for="inputKey"><strong>Input:</strong></label>
+      <input type="text"
+             id="inputKey"
+             [(ngModel)]="inputKey"
+             placeholder="Enter Name"/>
+      <br />
+      <button class="addButton" (click)="add(inputKey)">Add</button>
+      <button class="removeButton" (click)="remove(inputKey)">Remove</button>
+      <button class="sizeButton" (click)="updateSize()">Size</button>
+      <button class="containsButton" (click)="updateContains(inputKey)">Contains</button>
+    </div>
+    <div class="left">
+      <p><strong>Size:</strong> {{ size }} </p>
+      <p><strong>Contains:</strong> {{ containsResult }}</p>
+    </div>
+  </div>
+</div>
