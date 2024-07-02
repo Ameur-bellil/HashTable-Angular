@@ -1,4 +1,3 @@
-
 <div class="container">
   <div class="draw">
     <canvas #canvasElement width="1000" height="400"></canvas>
@@ -8,17 +7,15 @@
       <label for="inputKey"><strong>Input:</strong></label>
       <input type="text"
              id="inputKey"
-             [(ngModel)]="inputKey"
-             placeholder="Enter Name"/>
+             [(ngModel)]="newWord"
+             placeholder="Enter Word"/>
       <br />
-      <button class="addButton" (click)="add(inputKey)">Add</button>
-      <button class="removeButton" (click)="remove(inputKey)">Remove</button>
-      <button class="sizeButton" (click)="updateSize()">Size</button>
-      <button class="containsButton" (click)="updateContains(inputKey)">Contains</button>
+      <button class="addButton" (click)="addWord()">Add</button>
+      <button class="removeButton" (click)="removeWord()">Remove</button>
+      <button class="containsButton" (click)="searchWord()">Contains</button>
     </div>
     <div class="left">
-      <p><strong>Size:</strong> {{ size }} </p>
-      <p><strong>Contains:</strong> {{ containsResult }}</p>
+      <p><strong>Contains:</strong> {{ searchResult }}</p>
     </div>
   </div>
 </div>

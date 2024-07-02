@@ -1,9 +1,9 @@
-// @ts-ignore
-import { Component, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
-// @ts-ignore
+
+import { Component, ElementRef, OnInit, ViewChild,Inject, PLATFORM_ID } from '@angular/core';
 import { CommonModule } from '@angular/common';
-// @ts-ignore
 import { FormsModule } from '@angular/forms';
+import { HashTableService }  from  './HashTableService'
+import { isPlatformBrowser } from '@angular/common';
 
 @Component({
   selector: 'app-root',
@@ -11,213 +11,132 @@ import { FormsModule } from '@angular/forms';
   styleUrls: ['./app.component.scss'],
   standalone: true,
   imports: [CommonModule, FormsModule],
+  providers: [HashTableService],
 })
-export class AppComponent implements AfterViewInit {
-  private table: Map<string, string[]> = new Map();
-  private count: number = 0;
-  private tableSize: number = 10;
-  public inputKey: string = '';
-  public tableEntries: { index: string; values: string[] }[] = [];
-  public size: number = 0;
-  public containsResult: string = '';
-  @ViewChild('canvasElement') canvasElement!: ElementRef<HTMLCanvasElement>;
-  private ctx!: CanvasRenderingContext2D;
+export class AppComponent implements OnInit {
 
-  private readonly boxWidth: number = 100;
-  private readonly boxHeight: number = 30;
-  private readonly boxSpacing: number = 5;
+  title = 'HashTable';
+  newWord: string = '';
+  searchResult: boolean | null = null;
+  table: any = null;
+  @ViewChild('canvas', {static: true}) canvas?: ElementRef<HTMLCanvasElement>;
+  colorPalette: string[] = ['#348888', '#22BABB', '#9EF8EE', '#FA7F08', '#F24405'];
 
-  private animatingKey: string | null = null;
-  private animatingChainPosition: number = -1;
-  private animationStep: number = 0;
-  private currentX: number = 0;
-  private currentY: number = 0;
-  private targetX: number = 0;
-  private targetY: number = 0;
-  private movingToIndex: boolean = true;
-  private readonly ANIMATION_STEPS: number = 20;
+  constructor(private hashTableService: HashTableService,
+              @Inject(PLATFORM_ID) private platformId: Object) {
+  }
 
-  constructor() {
-    for (let i = 0; i < this.tableSize; i++) {
-      this.table.set(i.toString(), []);
+  ngOnInit(): void {
+    this.refreshTable();
+  }
+
+  addWord(): void {
+    if (this.newWord.trim() !== '') {
+      this.hashTableService.addWord(this.newWord.trim()).subscribe(() => {
+        console.log(`Word added: ${this.newWord}`);
+        this.drawRect();
+        this.newWord = '';
+        this.refreshTable();
+      });
     }
-    this.updateTableEntries();
   }
 
-  ngAfterViewInit() {
-    const canvas = this.canvasElement.nativeElement;
-    this.ctx = canvas.getContext('2d') as CanvasRenderingContext2D;
-    this.drawInitialTable();
-  }
+  removeWord(): void {
+    if (this.newWord.trim() !== '') {
+      this.hashTableService.removeWord(this.newWord.trim()).subscribe(() => {
+        console.log(`Word removed: ${this.newWord}`);
 
-  private hashFunction(key: string): number {
-    let hashValue = 0;
-    const n = key.length;
-    for (let i = 0; i < n; i++) {
-      hashValue = (hashValue + key.charCodeAt(i)) * 31;
+        this.newWord = '';
+        this.refreshTable();
+      });
     }
-    return Math.abs(hashValue % this.tableSize);
   }
 
-  add(key: string): void {
-    const index = this.hashFunction(key).toString();
-    const list = this.table.get(index) || [];
-
-    if (!list.includes(key)) {
-      this.startAnimation(key, parseInt(index));
-      this.count++;
-      console.log(`Added ${key}`);
+  searchWord(): void {
+    if (this.newWord.trim() !== '') {
+      this.hashTableService.searchWord(this.newWord.trim()).subscribe((result: boolean | null) => {
+        this.searchResult = result;
+        console.log(`Search result for ${this.newWord}: ${this.searchResult}`);
+      });
     } else {
-      alert(`Name already exists: ${key}`)
+      this.searchResult = null;
     }
   }
 
-  remove(key: string): void {
-    const index = this.hashFunction(key).toString();
-    const list = this.table.get(index);
-
-    if (list) {
-      const lastIndex = list.lastIndexOf(key);
-      if (lastIndex !== -1) {
-        list.splice(lastIndex, 1);
-        this.count--;
-        this.updateTableEntries();
-        this.redrawCanvas();
-      } else {
-        alert(`Name Not Found: ${key}`)
-      }
-    }
+  resetSearchResult(): void {
+    this.searchResult = null;
   }
 
-  getHashTableSize(): number {
-    return this.count;
+  refreshTable(): void {
+    this.hashTableService.getTable().subscribe((table: any[]) => {
+      this.table = table;
+      this.table = table.sort((a: any, b: any) => a.index - b.index);
+      this.drawRect();
+    });
   }
 
-  contains(key: string): boolean {
-    const index = this.hashFunction(key).toString();
-    const list = this.table.get(index);
+  drawRect(): void {
+    if (isPlatformBrowser(this.platformId)) {
+      const canvas = this.canvas?.nativeElement;
+      if (!canvas || !this.table) return;
 
-    return !!(list && list.includes(key));
-  }
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
 
-  private updateTableEntries(): void {
-    this.tableEntries = [];
-    for (let i = 0; i < this.tableSize; i++) {
-      const index = i.toString();
-      const values = this.table.get(index) || [];
-      this.tableEntries.push({index, values});
-    }
-  }
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  updateSize(): void {
-    this.size = this.getHashTableSize();
-  }
+      const cellWidth = 100;
+      const cellHeight = 30;
+      const padding = 10;
+      const borderRadius = 5;
 
-  updateContains(key: string): void {
-    this.containsResult = this.contains(key) ? 'Yes' : 'No';
-  }
+      this.table.forEach((row: any, i: number) => {
+        const indexX = padding;
+        const indexY = padding + i * (cellHeight + padding);
+        ctx.fillStyle = '#CCCCCC';
+        ctx.fillRect(indexX, indexY, cellWidth, cellHeight);
 
+        ctx.fillStyle = '#000000';
+        ctx.font = '16px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(row.index.toString(), indexX + cellWidth / 2, indexY + cellHeight / 2);
 
-  private drawInitialTable(): void {
-    this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
-    for (let i = 0; i < this.tableSize; i++) {
-      const y = (this.boxHeight + this.boxSpacing) * i;
-      this.ctx.strokeRect(0, y, this.boxWidth, this.boxHeight);
-      this.ctx.fillText(i.toString(), 5, y + 15);
-    }
-  }
+        let current = row.firstCell;
+        let j = 0;
+        while (current !== null) {
+          const x = padding + (j + 1) * (cellWidth + padding);
+          const y = padding + i * (cellHeight + padding);
 
-  private startAnimation(key: string, index: number): void {
-    this.animatingKey = key;
-    this.animatingChainPosition = (this.table.get(index.toString()) || []).length;
-    this.animationStep = 0;
+          const word = current.data;
 
-    const cellHeight = this.boxHeight;
-    const padding = this.boxSpacing;
-    const cellWidth = this.boxWidth;
+          ctx.fillStyle = this.colorPalette[i % this.colorPalette.length];
+          ctx.strokeStyle = this.colorPalette[i % this.colorPalette.length];
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(x + borderRadius, y);
+          ctx.lineTo(x + cellWidth - borderRadius, y);
+          ctx.quadraticCurveTo(x + cellWidth, y, x + cellWidth, y + borderRadius);
+          ctx.lineTo(x + cellWidth, y + cellHeight - borderRadius);
+          ctx.quadraticCurveTo(x + cellWidth, y + cellHeight, x + cellWidth - borderRadius, y + cellHeight);
+          ctx.lineTo(x + borderRadius, y + cellHeight);
+          ctx.quadraticCurveTo(x, y + cellHeight, x, y + cellHeight - borderRadius);
+          ctx.lineTo(x, y + borderRadius);
+          ctx.quadraticCurveTo(x, y, x + borderRadius, y);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
 
-    this.currentX = padding;
-    this.currentY = -cellHeight;
-    this.targetX = padding + (cellWidth + padding);
-    this.targetY = index * (cellHeight + padding) + padding;
-    this.movingToIndex = true;
+          ctx.fillStyle = '#000000';
+          ctx.font = '16px Arial';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(word, x + cellWidth / 2, y + cellHeight / 2);
 
-    const animate = () => {
-      if (this.animationStep < this.ANIMATION_STEPS) {
-        this.currentX += (this.targetX - this.currentX) / (this.ANIMATION_STEPS - this.animationStep + 1);
-        this.currentY += (this.targetY - this.currentY) / (this.ANIMATION_STEPS - this.animationStep + 1);
-      } else {
-        if (this.movingToIndex) {
-          this.movingToIndex = false;
-          this.animationStep = 0;
-          this.targetX = padding + (cellWidth + padding) * (this.animatingChainPosition + 1);
-        } else {
-          this.currentX += (this.targetX - this.currentX) / (this.ANIMATION_STEPS - this.animationStep + 1);
-          if (this.animationStep >= this.ANIMATION_STEPS) {
-            this.table.get(index.toString())?.push(this.animatingKey as string);
-            this.animatingKey = null;
-            this.updateTableEntries();
-            this.redrawCanvas();
-            return;
-          }
-        }
-      }
-
-      this.animationStep++;
-      this.redrawCanvas();
-      if (this.animatingKey) {
-        requestAnimationFrame(animate);
-      }
-    };
-
-    requestAnimationFrame(animate);
-  }
-
-  private redrawCanvas(): void {
-    this.ctx.clearRect(0, 0, this.ctx.canvas.width, this.ctx.canvas.height);
-    this.drawInitialTable();
-    for (let i = 0; i < this.tableSize; i++) {
-      const index = i.toString();
-      const values = this.table.get(index) || [];
-      values.forEach((value, j) => {
-        const x = this.boxWidth + this.boxSpacing + j * (this.boxWidth + this.boxSpacing);
-        const y = (this.boxHeight + this.boxSpacing) * i;
-        this.ctx.strokeRect(x, y, this.boxWidth, this.boxHeight);
-        this.ctx.fillText(value, x + 5, y + 15);
-
-        if (j > 0) {
-          this.ctx.beginPath();
-          this.ctx.moveTo(x - this.boxSpacing, y + this.boxHeight / 2);
-          this.ctx.lineTo(x, y + this.boxHeight / 2);
-          this.ctx.stroke();
+          current = current.next;
+          j++;
         }
       });
-
-      if (values.length > 0) {
-        const x = this.boxWidth + this.boxSpacing + values.length * (this.boxWidth + this.boxSpacing);
-        const y = (this.boxHeight + this.boxSpacing) * i;
-        this.ctx.beginPath();
-        this.ctx.moveTo(x - this.boxSpacing, y + this.boxHeight / 2);
-        this.ctx.lineTo(x, y + this.boxHeight / 2);
-        this.ctx.stroke();
-        this.ctx.moveTo(x, y + this.boxSpacing);
-        this.ctx.lineTo(x, y + this.boxHeight - this.boxSpacing);
-        this.ctx.stroke();
-
-        const dashLength = 8;
-        const dashSpacing = 5;
-        for (let dashY = y + this.boxSpacing - 1; dashY < y + this.boxHeight - this.boxSpacing; dashY += dashSpacing) {
-          this.ctx.beginPath();
-          this.ctx.moveTo(x, dashY + dashLength);
-          this.ctx.lineTo(x + dashLength, dashY - dashLength);
-          this.ctx.stroke();
-        }
-      }
-    }
-
-    if (this.animatingKey) {
-      this.ctx.fillStyle = 'black';
-      this.ctx.fillText(this.animatingKey, this.currentX + 5, this.currentY + 15);
     }
   }
 }
